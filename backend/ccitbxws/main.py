@@ -278,8 +278,9 @@ def _get_time_string_from_file_name(file_name):
     return None
 
 
-def crossdomain(req, resp):
-    resp.set_header('Access-Control-Allow-Origin', '*')
+class Crossdomain(object):
+    def process_response(self, req, resp, resource):
+        resp.set_header('Access-Control-Allow-Origin', '*')
 
 
 class FileVarTile:
@@ -508,7 +509,7 @@ class NE2:
 
 def main(args=sys.argv):
     # Create instance of our CCI Toolbox' RESTful API, which is a WSGI application instance.
-    api = falcon.API(after=[crossdomain])
+    api = falcon.API(middleware=[Crossdomain()])
     api.add_route('/ccitbx', About())
     api.add_route('/ccitbx/FileOpen', FileOpen())
     api.add_route('/ccitbx/FileClose', FileClose())
