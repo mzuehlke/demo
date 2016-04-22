@@ -5,7 +5,7 @@ setup(
     version="0.0.1",
     description='CCI Toolbox Server',
     license='GPL 3',
-    author='Brockmann COnsult GmbH',
+    author='Brockmann Consult GmbH',
     packages=['ccitbxws'],
     entry_points={
         'console_scripts': [
