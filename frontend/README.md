@@ -15,7 +15,7 @@
           * `jquery/`
           * `jquery-ui/`
 3. `cd ../backend` and start Python web service. See `../backend/README.md`.
-4. `cd ../frontend` and type `electron .`
+4. `cd ../frontend` and type `npm start`
 
 For easier testing you can also create a file `ccitbxui.cmd` or `ccitbxui.sh` and start the frontend with
 NetCDF file arguments. E.g. in `ccitbxui.cmd` put:
