@@ -1,6 +1,6 @@
 # Getting Started
 
-Create file `./ccitbxws-config.py` and adjust content like so:
+Create file `./ccitbxws-conf.py` and adjust content like so:
 
     # DATA_ROOT is used to resolve relative file paths passed to the web service
     DATA_ROOT = 'C:\\Users\\Norman\\EOData\\occci-v2.0\\geographic\\netcdf\\monthly\\chlor_a\\2013'
