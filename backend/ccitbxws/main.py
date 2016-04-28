@@ -434,7 +434,7 @@ class FileTimeSeries:
                 var_value = None
             time_series.append([var_time, var_value])
 
-        sorted(time_series, key=lambda item: item[0])
+        time_series = sorted(time_series, key=lambda item: item[0])
         time_series = list(zip(*time_series))
 
         print('time_series = ' + str(time_series))
