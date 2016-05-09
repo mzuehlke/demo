@@ -1,8 +1,6 @@
 import time
 from unittest import TestCase
 
-import h5py
-
 import ccitbxws.data_sources as ds
 from ccitbxws.image import ColorMappedRgbaImage, ImagePyramid
 
@@ -24,6 +22,7 @@ class H5PyDatasetImageTest(TestCase):
     def setUp(self):
         import ccitbxws.main as main
         import os
+        import h5py
         data_root = main.CONFIG.get('DATA_ROOT', '.')
         file_path = os.path.join(data_root, 'ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OC4v6-201301-fv2.0.nc')
         self.file = h5py.File(file_path, 'r')
@@ -119,6 +118,129 @@ class H5PyDatasetImageTest(TestCase):
         pyramid = pyramid.apply(lambda image: ColorMappedRgbaImage(image,
                                                                    value_range=(0.0, 2.0),
                                                                    no_data_value=self.dataset.fillvalue))
+        self.assertEqual((270, 270), pyramid.tile_size)
+        self.assertEqual((2, 1), pyramid.num_level_zero_tiles)
+        self.assertEqual(5, pyramid.num_levels)
+
+        level_image = pyramid.get_level_image(0)
+
+        t1 = time.clock()
+        tile00 = level_image.get_tile(0, 0)
+        tile10 = level_image.get_tile(1, 0)
+        t2 = time.clock()
+        print("opt RGBA pyramid took: ", t2 - t1)
+
+        t1 = time.clock()
+        num_tiles_x, num_tiles_y = image.num_tiles
+        for tile_y in range(num_tiles_y):
+            for tile_x in range(num_tiles_x):
+                tile = image.get_tile(tile_x, tile_y)
+        t2 = time.clock()
+        print("opt max level tiles took: ", t2 - t1)
+
+
+class XarrayImageTest(TestCase):
+    def setUp(self):
+        import ccitbxws.main as main
+        import os
+        import xarray as xr
+        data_root = main.CONFIG.get('DATA_ROOT', '.')
+        file_path = os.path.join(data_root, 'ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OC4v6-201301-fv2.0.nc')
+        self.xr_ds = xr.open_dataset(file_path)
+        self.xr_da = self.xr_ds['chlor_a']
+        self.assertIsNotNone(self.xr_da)
+
+    def tearDown(self):
+        self.xr_ds.close()
+
+    def test_xarray_raw_image(self):
+        image = ds.XarrayImage(self.xr_da)
+        self.assertEqual('ndarray', image.format)
+        self.assertEqual('float64', image.mode)     # TODO why float64 and not float32
+        self.assertEqual((8640, 4320), image.size)
+        self.assertEqual((270, 270), image.tile_size)
+        self.assertEqual((32, 16), image.num_tiles)
+
+        tile00 = image.get_tile(0, 0)
+        self.assertIsNotNone(tile00)
+        self.assertEqual((1, 270, 270), tile00.shape)
+        tileNN = image.get_tile(33, 16)
+        self.assertIsNotNone(tileNN)
+        self.assertEqual((1, 270, 270), tileNN.shape)
+
+    def test_xarray_raw_pyramid(self):
+        image = ds.XarrayImage(self.xr_da)
+        pyramid = image.create_pyramid()
+        self.assertEqual((270, 270), pyramid.tile_size)
+        self.assertEqual((2, 1), pyramid.num_level_zero_tiles)
+        self.assertEqual(5, pyramid.num_levels)
+
+        level_image = pyramid.get_level_image(0)
+
+        t1 = time.clock()
+        tile00 = level_image.get_tile(0, 0)
+        tile10 = level_image.get_tile(1, 0)
+        t2 = time.clock()
+        print("ndarray pyramid took: ", t2 - t1)
+
+    def test_xarray_raw_pyramid_fast(self):
+        pyramid = ImagePyramid.create_from_array(self.xr_da, tile_size=(270, 270))
+        self.assertEqual((270, 270), pyramid.tile_size)
+        self.assertEqual((2, 1), pyramid.num_level_zero_tiles)
+        self.assertEqual(5, pyramid.num_levels)
+
+        level_image = pyramid.get_level_image(0)
+
+        t1 = time.clock()
+        tile00 = level_image.get_tile(0, 0)
+        tile10 = level_image.get_tile(1, 0)
+        t2 = time.clock()
+        print("ndarray fast pyramid took: ", t2 - t1)
+
+    def test_xarray_rgba_image(self):
+        image = ColorMappedRgbaImage(ds.XarrayImage(self.xr_da))
+        self.assertEqual('ndarray', image.format)
+        self.assertEqual('RGBA', image.mode)
+        self.assertEqual((8640, 4320), image.size)
+        self.assertEqual((270, 270), image.tile_size)
+        self.assertEqual((32, 16), image.num_tiles)
+
+        tile00 = image.get_tile(0, 0)
+        self.assertIsNotNone(tile00)
+        tileNN = image.get_tile(33, 16)
+        self.assertIsNotNone(tileNN)
+
+    def test_xarray_rgba_pyramid(self):
+        image = ColorMappedRgbaImage(ds.XarrayImage(self.xr_da, tile_size=(270, 270)))
+        pyramid = image.create_pyramid()
+        self.assertEqual((270, 270), pyramid.tile_size)
+        self.assertEqual((2, 1), pyramid.num_level_zero_tiles)
+        self.assertEqual(5, pyramid.num_levels)
+
+        level_image = pyramid.get_level_image(0)
+
+        t1 = time.clock()
+        tile00 = level_image.get_tile(0, 0)
+        tile10 = level_image.get_tile(1, 0)
+        t2 = time.clock()
+        print("RGBA pyramid took: ", t2 - t1)
+
+        t1 = time.clock()
+        num_tiles_x, num_tiles_y = image.num_tiles
+        for tile_y in range(num_tiles_y):
+            for tile_x in range(num_tiles_x):
+                tile = image.get_tile(tile_x, tile_y)
+        t2 = time.clock()
+        print("max level tiles took: ", t2 - t1)
+
+    def test_xarray_raw_to_rgba_pyramid(self):
+        image = ds.XarrayImage(self.xr_da, tile_size=(270, 270))
+        pyramid = image.create_pyramid()
+        import numpy as np
+        # TODO fillvalue ?
+        pyramid = pyramid.apply(lambda image: ColorMappedRgbaImage(image,
+                                                                   value_range=(0.0, 2.0),
+                                                                   no_data_value=np.nan))
         self.assertEqual((270, 270), pyramid.tile_size)
         self.assertEqual((2, 1), pyramid.num_level_zero_tiles)
         self.assertEqual(5, pyramid.num_levels)

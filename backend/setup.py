@@ -13,6 +13,7 @@ setup(
         ]
     },
     install_requires=['h5py >= 2.5',
+                      'xarray >= 0.7.2',
                       'numpy >= 1.7',
                       'matplotlib >= 1.5',
                       'Pillow >= 3.1',

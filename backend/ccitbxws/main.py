@@ -9,7 +9,7 @@ from threading import current_thread, Lock
 
 import cherrypy
 import falcon
-import h5py
+import xarray as xr
 import numpy
 
 from ccitbxws.cmaps import get_cmaps
@@ -104,7 +104,7 @@ def _open_dataset(file_path):
     if file_path in _DATASETS:
         dataset = _DATASETS[file_path]
     else:
-        dataset = h5py.File(file_path, 'r')
+        dataset = xr.open_dataset(file_path)
         _DATASETS[file_path] = dataset
     return dataset
 
@@ -162,9 +162,6 @@ def _get_variable_info(variable):
     # print(list(variable.attrs.keys()))
     for dim in variable.dims:
         print(variable.name, '.dim:', dim)
-        for key in dim.keys():
-            value = dim[key]
-            print(variable.name, '.dim.', key, '=', value)
 
     attrs = variable.attrs
     variable_info = {
@@ -173,9 +170,9 @@ def _get_variable_info(variable):
         'ndim': len(variable.dims),
         'shape': variable.shape,
         'chunks': variable.chunks,
-        # 'dimensions': variable.dimensions,
-        'fill_value': _get_float_attr(attrs, '_FillValue',
-                                      default_value=float(variable.fillvalue) if variable.fillvalue else None),
+        'dimensions': variable.dims,
+        #'fill_value': _get_float_attr(attrs, '_FillValue',
+        #                              default_value=float(variable.fillvalue) if variable.fillvalue else None),
         'valid_min': _get_float_attr(attrs, 'valid_min'),
         'valid_max': _get_float_attr(attrs, 'valid_max'),
         'add_offset': _get_float_attr(attrs, 'add_offset'),
@@ -186,10 +183,11 @@ def _get_variable_info(variable):
         # todo - fix code below, it seems to originate from an h5py internal bug
         #  File "C:\Python34-amd64\lib\site-packages\h5py\_hl\attrs.py", line 55, in __getitem__
         #     raise IOError("Empty attributes cannot be read")
-        # 'comment': _get_unicode_attr(attrs, 'comment'),
+        'comment': _get_unicode_attr(attrs, 'comment'),
     }
     if is_lat_lon_image_variable(variable):
         variable_info['imageConfig'] = _get_variable_image_config(variable)
+        variable_info['y-flipped'] = is_y_flipped(variable)
     return variable_info
 
 
@@ -197,7 +195,7 @@ def _get_variable_image_config(variable):
     t1 = time.clock()
     max_size, tile_size, num_level_zero_tiles, num_levels = ImagePyramid.compute_layout(array=variable)
     t2 = time.clock()
-    print("PERF: ImagePyramid.compute_layout took %f seconds" % (t2 - t1))
+    print("PERF(%s): ImagePyramid.compute_layout took %f seconds" % (variable.name,t2 - t1))
     return {
         # todo - compute imageConfig.sector from variable attributes. See frontend todo.
         'sector': {
@@ -215,36 +213,26 @@ def _get_variable_image_config(variable):
 
 
 def is_y_flipped(variable):
-    lat_var = get_lat_var(variable)
-    if lat_var is not None:
-        return lat_var[0] < lat_var[1]
-    return False
+    lat_coords = variable.coords[get_lat_dim_name(variable)]
+    return lat_coords.to_index().is_monotonic_decreasing
 
 
 def is_lat_lon_image_variable(variable):
-    lon_var = get_lon_var(variable)
-    if lon_var is not None and lon_var.shape[0] >= 2:
-        lat_var = get_lat_var(variable)
-        return lat_var is not None and lat_var.shape[0] >= 2
-    return False
+    return get_lat_dim_name(variable) != None and get_lon_dim_name(variable) != None
 
 
-def get_lon_var(variable):
-    return get_dim_var(variable, ['lon', 'longitude', 'long'], -1)
+def get_lon_dim_name(variable):
+    return get_dim_name(variable, ['lon', 'longitude', 'long'])
 
 
-def get_lat_var(variable):
-    return get_dim_var(variable, ['lat', 'latitude'], -2)
+def get_lat_dim_name(variable):
+    return get_dim_name(variable, ['lat', 'latitude'])
 
 
-def get_dim_var(variable, names, pos):
-    if len(variable.dims) >= -pos:
-        dim = variable.dims[len(variable.dims) + pos]
-        for name in names:
-            if name in dim:
-                dim_var = dim[name]
-                if dim_var is not None and len(dim_var.shape) == 1 and dim_var.shape[0] >= 1:
-                    return dim_var
+def get_dim_name(variable, possible_names):
+    for name in possible_names:
+        if name in variable.dims:
+            return name
     return None
 
 
@@ -285,7 +273,7 @@ class Crossdomain(object):
 
 class FileVarTile:
     def on_get(self, req, resp, z, y, x):
-        # GLOBAL_LOCK.acquire()
+        GLOBAL_LOCK.acquire()
 
         file_path = _get_file_from_req(req)
         dataset = _open_dataset(file_path)
@@ -305,9 +293,10 @@ class FileVarTile:
 
             pyramid = ImagePyramid.create_from_array(variable)
             pyramid = pyramid.apply(lambda image: TransformArrayImage(image,
-                                                                      no_data_value=variable.fillvalue,
+                                                                      # no_data_value=variable.fillvalue,
                                                                       force_masked=True,
-                                                                      flip_y=is_y_flipped(variable)))
+                                                                      #flip_y=is_y_flipped(variable)
+                                                                      ))
             pyramid = pyramid.apply(lambda image: ColorMappedRgbaImage(image,
                                                                        value_range=(cmap_min, cmap_max),
                                                                        cmap_name=cmap_name,
@@ -327,7 +316,7 @@ class FileVarTile:
         resp.status = falcon.HTTP_OK
 
         print('PERF: <<< Tile:', current_thread(), file_path, var_name, cmap_name, z, y, x, 'took', t2 - t1, 'seconds')
-        # GLOBAL_LOCK.release()
+        GLOBAL_LOCK.release()
 
 
 class FileOpen:
@@ -401,7 +390,7 @@ class FileTimeSeries:
                     dataset = _DATASETS[file_path]
                     must_close = False
                 else:
-                    dataset = h5py.File(file_path, 'r')
+                    dataset = xr.open_dataset(file_path)
                     must_close = True
                 variable = dataset[var_name]
                 w = variable.shape[-1]
@@ -425,7 +414,7 @@ class FileTimeSeries:
                     var_value = float(variable[0, 0, y, x])
                 else:
                     var_value = None
-                if var_value and (numpy.isnan(var_value) or var_value == float(variable.fillvalue)):
+                if var_value and (numpy.isnan(var_value)):
                     var_value = None
                 if must_close:
                     dataset.close()
@@ -533,4 +522,5 @@ def main(args=sys.argv):
 
 
 if __name__ == '__main__':
+    sys.settrace
     main()
