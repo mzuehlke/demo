@@ -188,6 +188,10 @@ def _get_variable_info(variable):
     if is_lat_lon_image_variable(variable):
         variable_info['imageConfig'] = _get_variable_image_config(variable)
         variable_info['y-flipped'] = is_y_flipped(variable)
+        nanmin = numpy.nanmin(variable.values)
+        nanmax = numpy.nanmax(variable.values)
+        variable_info['real_min'] = str(nanmin)
+        variable_info['real_max'] = str(nanmax)
     return variable_info
 
 
