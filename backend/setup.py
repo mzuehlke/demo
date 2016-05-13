@@ -12,8 +12,9 @@ setup(
             'ccitbxws = ccitbxws.main:main',
         ]
     },
-    install_requires=['h5py >= 2.5',
+    install_requires=['h5py >= 2.6.1',
                       'xarray >= 0.7.2',
+                      'h5netcdf >= 0.2.2',
                       'numpy >= 1.7',
                       'matplotlib >= 1.5',
                       'Pillow >= 3.1',

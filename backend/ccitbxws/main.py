@@ -104,7 +104,7 @@ def _open_dataset(file_path):
     if file_path in _DATASETS:
         dataset = _DATASETS[file_path]
     else:
-        dataset = xr.open_dataset(file_path)
+        dataset = xr.open_dataset(file_path, engine='h5netcdf')
         _DATASETS[file_path] = dataset
     return dataset
 
@@ -214,7 +214,7 @@ def _get_variable_image_config(variable):
 
 def is_y_flipped(variable):
     lat_coords = variable.coords[get_lat_dim_name(variable)]
-    return lat_coords.to_index().is_monotonic_decreasing
+    return lat_coords.to_index().is_monotonic_increasing
 
 
 def is_lat_lon_image_variable(variable):
@@ -291,11 +291,11 @@ class FileVarTile:
         else:
             variable = dataset[var_name]
 
-            pyramid = ImagePyramid.create_from_array(variable)
+            pyramid = ImagePyramid.create_from_array(variable.values)
             pyramid = pyramid.apply(lambda image: TransformArrayImage(image,
                                                                       # no_data_value=variable.fillvalue,
                                                                       force_masked=True,
-                                                                      #flip_y=is_y_flipped(variable)
+                                                                      flip_y=is_y_flipped(variable)
                                                                       ))
             pyramid = pyramid.apply(lambda image: ColorMappedRgbaImage(image,
                                                                        value_range=(cmap_min, cmap_max),
@@ -390,7 +390,7 @@ class FileTimeSeries:
                     dataset = _DATASETS[file_path]
                     must_close = False
                 else:
-                    dataset = xr.open_dataset(file_path)
+                    dataset = xr.open_dataset(file_path, engine='h5netcdf')
                     must_close = True
                 variable = dataset[var_name]
                 w = variable.shape[-1]
