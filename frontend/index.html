@@ -1247,26 +1247,26 @@
                 return;
             }
             var selectedDataFile = appViewModel.selectedDataFile();
-            if (!Cesium.definedNotNull(selectedDataFile)
-                    || !Cesium.definedNotNull(selectedDataFile.filePath)) {
+            if (!Cesium.defined(selectedDataFile)
+                    || !Cesium.defined(selectedDataFile.filePath)) {
                 console.log('timeSeriesPlotWindow bad selectedDataFile');
                 return;
             }
             var selectedVariable = dataFileViewModel.selectedVariable();
-            if (!Cesium.definedNotNull(selectedVariable)
-                    || !Cesium.definedNotNull(selectedVariable.variableName)) {
+            if (!Cesium.defined(selectedVariable)
+                    || !Cesium.defined(selectedVariable.variableName)) {
                 console.log('timeSeriesPlotWindow bad selectedVariable');
                 return;
             }
             var selectedEntity = viewer.selectedEntity;
-            if (!Cesium.definedNotNull(selectedEntity)
-                    || !Cesium.definedNotNull(selectedEntity.position)
-                    || !Cesium.definedNotNull(selectedEntity.poiId)) {
+            if (!Cesium.defined(selectedEntity)
+                    || !Cesium.defined(selectedEntity.position)
+                    || !Cesium.defined(selectedEntity.poiId)) {
                 console.log('timeSeriesPlotWindow bad selectedEntity');
                 return;
             }
             var cartesianPos = selectedEntity.position.getValue(Cesium.JulianDate.now());
-            if (!Cesium.definedNotNull(cartesianPos)) {
+            if (!Cesium.defined(cartesianPos)) {
                 console.log('timeSeriesPlotWindow bad cartesianPos');
                 return;
             }

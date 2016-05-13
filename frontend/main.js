@@ -11,7 +11,7 @@ const ipc = electron.ipcMain;
 electron.crashReporter.start({
     productName: 'CCI Toolbox',
     companyName: 'ESA',
-    submitUrl: 'https://www.brockmann-consult.de/ccitbxws/Crash',
+    submitURL: 'https://www.brockmann-consult.de/ccitbxws/Crash',
     autoSubmit: true
 });
 
