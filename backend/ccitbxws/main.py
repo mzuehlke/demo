@@ -393,8 +393,9 @@ class FileTimeSeries:
                     dataset = xr.open_dataset(file_path, engine='h5netcdf')
                     must_close = True
                 variable = dataset[var_name]
-                w = variable.shape[-1]
-                h = variable.shape[-2]
+                array = variable.values
+                w = array.shape[-1]
+                h = array.shape[-2]
                 x = int(w * (longitude + 180.) / 360. + 0.5)
                 if is_y_flipped(variable):
                     y = int(h * (latitude + 90.) / 180. + 0.5)
@@ -404,14 +405,14 @@ class FileTimeSeries:
                 if y < 0: y = 0
                 if x >= w: y = w - 1
                 if y >= h: y = h - 1
-                print('FileTimeSeries:', x, y, w, h, variable.shape)
+                print('FileTimeSeries:', x, y, w, h, array.shape)
                 # todo read multiple time values
-                if len(variable.shape) == 3:
-                    var_value = float(variable[0, y, x])
-                elif len(variable.shape) == 2:
-                    var_value = float(variable[y, x])
-                elif len(variable.shape) == 4:
-                    var_value = float(variable[0, 0, y, x])
+                if len(array.shape) == 3:
+                    var_value = float(array[0, y, x])
+                elif len(array.shape) == 2:
+                    var_value = float(array[y, x])
+                elif len(array.shape) == 4:
+                    var_value = float(array[0, 0, y, x])
                 else:
                     var_value = None
                 if var_value and (numpy.isnan(var_value)):
